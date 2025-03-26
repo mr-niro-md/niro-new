@@ -16,6 +16,9 @@
 [![BOT-NEW](https://img.shields.io/badge/NIRO_MD_deploy_on_render-000000?style=for-the-badge&logo=render&logoColor=white&buttcode=1n2i3m4a)](https://docs.render.com/free)
 
 <hr>
+###  Heroku
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://dashboard.heroku.com/new?template=https://github.com/lakamdbot2025/lakamd)
+<hr>
 
 <div align="center">
   <h3>📞 Support & Updates</h3>
