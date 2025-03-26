@@ -1,4 +1,4 @@
-a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=0000FF&center=true&width=1000&height=200&lines=POWER BY NIRO MD" alt="Typing SVG" /></a>
+src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=0000FF&center=true&width=1000&height=200&lines=POWER BY NIRO MD" alt="Typing SVG" /></a>
   </p>
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 <a><img src='https://i.ibb.co/p6v1dc6w/image-1742790261707.jpg'/></a>
