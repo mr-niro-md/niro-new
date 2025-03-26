@@ -1,0 +1,23 @@
+{
+  "name": "NIRO-MD",
+  "description": "NIRO-MD has been designed to make things easier and fun while using WhatsApp. ❤️",
+  "logo": "https://i.ibb.co/p6v1dc6w/image-1742790261707.jpg",
+  "keywords": ["niromd", "web", "whatsapp web", "multi device", "niro-md"],
+  "success_url": "/",
+
+  "env": {
+    "SESSION_ID": {
+            "description": "Paste Your PRABATH-MD session",
+            "required": true,
+            "value": ""
+        }
+    },
+         "buildpacks": [
+        {
+            "url": "https://github.com/heroku/heroku-buildpack-nodejs.git"
+        }
+     ],
+  "stack": "heroku-24"
+
+
+}
