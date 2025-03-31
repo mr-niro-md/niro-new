@@ -171,7 +171,7 @@ async function connectToWA() {
 
                     case 'alive':
                         try {
-                            const aliveMsg = `*🤖 NIRO-MD BOT ALIVE!*\n\n*Version:* 1.5.0\n*Prefix:* ${prefix}\n*Runtime:* ${runtime(process.uptime())}\n\n*Features:*\n• 24/7 Active\n• Fast Response\n\n*Developer:* NIRO\n*Powered By:* NIRO DEVELOPER`
+                            const aliveMsg = `*🤖 NIRO-MD BOT ALIVE!*\n\n*Version:* 1.5.0\n*Prefix:* ${prefix}\n*Runtime:* ${runtime(process.uptime())}\n\n*Features:*\n• 24/7 Active\n• Fast Response\n\n*Developer:* Niro\n*Powered By:* Programing Niro`
 
                             await conn.sendMessage(from, {
                                 text: aliveMsg,
