@@ -21,7 +21,7 @@ const port = process.env.PORT || 8000
 const prefix = '.'
 
 const ownerNumbers = ['94762296665']
-const niromdEmojis = ['🦹🏻‍♂️']
+const dexterEmojis = ['🦹‍♂️', '🦹‍♂️', '🦹‍♂️', '🦹‍♂️']
 
 // Session handling
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
