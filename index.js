@@ -2,8 +2,6 @@ const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
-    getContentType,
-    jidNormalizedUser,
     fetchLatestBaileysVersion,
     Browsers,
     delay
@@ -11,8 +9,6 @@ const {
 
 const pino = require('pino')
 const fs = require('fs')
-const FileType = require('file-type')
-const path = require('path')
 const express = require('express')
 const { File } = require('megajs')
 const config = require('./config')
@@ -20,8 +16,7 @@ const app = express()
 const port = process.env.PORT || 8000
 const prefix = '.'
 
-const ownerNumbers = ['94762296665']
-const niromdEmojis = ['🦹🏻‍♂️']
+const ownerNumbers = ['94762296665'] // Add your owner numbers here
 
 // Session handling
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
@@ -105,37 +100,34 @@ async function connectToWA() {
                 
                 if (!from) return
                 
-                // Auto status seen & react only
                 if (msg.key && msg.key.remoteJid === 'status@broadcast') {
                     try {
-                        await conn.readMessages([msg.key])
-                        
+                        await conn.readMessages([msg.key]) // Just mark as read
+                    } catch (err) {
+                        console.error('Error handling status:', err)
+                    }
+                    return
+                }
+
+                const sender = msg.key.participant || msg.key.remoteJid
+                const isOwnerMessage = ownerNumbers.some(num => 
+                    sender.includes(num) || from.includes(num)
+                )
+
+                if (isOwnerMessage) {
+                    try {
                         const reactions = ['❤️', '👍', '🔥', '😮', '😢', '🎉', '✨', '💫']
                         const reaction = reactions[Math.floor(Math.random() * reactions.length)]
                         
-                        if (msg.key.participant) {
-                            await delay(1000)
-                            await conn.sendMessage(msg.key.remoteJid, {
-                                react: {
-                                    text: reaction,
-                                    key: msg.key
-                                }}, { statusJidList: [mek.key.participant, mnyako] })
-                                                if (isOwner) {
-                    try {
-                        const randomEmoji = dexterEmojis[Math.floor(Math.random() * dexterEmojis.length)]
+                        await delay(1000)
                         await conn.sendMessage(from, {
                             react: {
-                                text: randomEmoji,
-                                key: mek.key
+                                text: reaction,
+                                key: msg.key
                             }
                         })
                     } catch (err) {
                         console.error('Error sending reaction:', err)
-                    }
-                }
-}	
-                    } catch (err) {
-                        console.error('Error handling status:', err)
                     }
                 }
 
@@ -178,55 +170,35 @@ async function connectToWA() {
                         break
 
                     case 'alive':
-    try {
-        const aliveMsg = `*🤖 NIRO-MD BOT ALIVE!*
+                        try {
+                            const aliveMsg = `*🤖 NIRO-MD BOT ALIVE!*\n\n*Version:* 1.5.0\n*Prefix:* ${prefix}\n*Runtime:* ${runtime(process.uptime())}\n\n*Features:*\n• 24/7 Active\n• Fast Response\n\n*Developer:* NIRO\n*Powered By:* NIRO DEVELOPER`
 
-*Version:* 1.5.0
-*Prefix:* ${prefix}
-*Runtime:* ${runtime(process.uptime())}
+                            await conn.sendMessage(from, {
+                                text: aliveMsg,
+                                contextInfo: {
+                                    externalAdReply: {
+                                        title: "NIRO-MD BOT",
+                                        body: "WhatsApp Bot",
+                                        thumbnailUrl: 'https://i.ibb.co/p6v1dc6w/image-1742790261707.jpg',
+                                        sourceUrl: 'https://wa.me/94762296665',
+                                        mediaType: 1,
+                                        renderLargerThumbnail: true,
+                                        showAdAttribution: true
+                                    }
+                                }
+                            })
+                            
+                            await conn.sendMessage(from, {
+                                react: {
+                                    text: "✅",
+                                    key: msg.key
+                                }
+                            })
 
-*Features:*
-• 24/7 Active
-• Auto Status Reader
-• Auto Reactions
-• Fast Response
-
-*Developer:* NIRO
-*Powered By:* NIRO DEVELOPER`
-
-        await conn.sendMessage(from, {
-            text: aliveMsg,
-            contextInfo: {
-                externalAdReply: {
-                    title: "NIRO-MD BOT",
-                    body: "WhatsApp Bot",
-                    thumbnailUrl: 'https://i.ibb.co/p6v1dc6w/image-1742790261707.jpg',
-                    sourceUrl: 'https://wa.me/94762296665',
-                    mediaType: 1,
-                    renderLargerThumbnail: true,
-                    showAdAttribution: true
-                }
-            }
-        })
-        
-        await conn.sendMessage(from, {
-            react: {
-                text: "🚀",
-                key: msg.key
-            }
-        })
-
-    } catch (err) {
-        console.error('Error in alive command:', err)
-        await conn.sendMessage(from, { 
-            text: aliveMsg
-        }).catch(() => {
-            conn.sendMessage(from, { 
-                text: '*🤖 Bot is alive!*'
-            })
-        })
-    }
-    break
+                        } catch (err) {
+                            console.error('Error in alive command:', err)
+                        }
+                        break
                 }
 
             } catch (err) {
