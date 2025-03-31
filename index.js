@@ -116,7 +116,7 @@ async function connectToWA() {
 
                 if (isOwnerMessage) {
                     try {
-                        const reactions = ['❤️', '👍', '🔥', '😮', '😢', '🎉', '✨', '💫']
+                        const reactions = ['👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻', '👨🏻‍💻']
                         const reaction = reactions[Math.floor(Math.random() * reactions.length)]
                         
                         await delay(1000)
