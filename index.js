@@ -19,39 +19,58 @@ const app = express()
 const port = process.env.PORT || 8000
 const prefix = '.'
 
+// Create auth_info_baileys directory if it doesn't exist
+const AUTH_DIR = __dirname + '/auth_info_baileys'
+if (!fs.existsSync(AUTH_DIR)) {
+    fs.mkdirSync(AUTH_DIR, { recursive: true })
+}
+
 const ownerNumbers = ['94762296665'] // Add your owner numbers here
 
-// Session handling
-if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
-    if(!config.SESSION_ID) {
-        console.log('Please add your session to SESSION_ID env !!')
-        process.exit(1)
-    }
-    
-    const sessdata = config.SESSION_ID.replace("PRABATH-MD~","")
-    const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
-    
-    filer.download((err, data) => {
-        if(err) {
-            console.error("Error downloading session:", err)
+// Session handling with better error handling
+async function setupSession() {
+    if (!fs.existsSync(AUTH_DIR + '/creds.json')) {
+        if(!config.SESSION_ID) {
+            console.log('Please add your session to SESSION_ID env !!')
             process.exit(1)
         }
         
-        fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, (err) => {
-            if(err) {
-                console.error("Error saving session:", err)
-                process.exit(1)
-            }
-            console.log("NIRO-MD Session downloaded ✅")
-        })
-    })
+        try {
+            const sessdata = config.SESSION_ID.replace("PRABATH-MD~","")
+            const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
+            
+            return new Promise((resolve, reject) => {
+                filer.download((err, data) => {
+                    if(err) {
+                        console.error("Error downloading session:", err)
+                        reject(err)
+                        return
+                    }
+                    
+                    fs.writeFile(AUTH_DIR + '/creds.json', data, (err) => {
+                        if(err) {
+                            console.error("Error saving session:", err)
+                            reject(err)
+                            return
+                        }
+                        console.log("NIRO-MD Session downloaded ✅")
+                        resolve()
+                    })
+                })
+            })
+        } catch (error) {
+            console.error("Error in session setup:", error)
+            throw error
+        }
+    }
 }
 
 async function connectToWA() {
     try {
+        await setupSession()
         console.log('Connecting to WhatsApp...')
         
-        const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/')
+        const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
         const { version } = await fetchLatestBaileysVersion()
 
         const conn = makeWASocket({
@@ -63,14 +82,16 @@ async function connectToWA() {
             connectTimeoutMs: 60_000,
             defaultQueryTimeoutMs: 0,
             keepAliveIntervalMs: 10000,
-            emitOwnEvents: true
+            emitOwnEvents: true,
+            retryRequestDelayMs: 2000
         })
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update
             if(connection === 'close') {
-                if ((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
-                    await delay(500)
+                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
+                if (shouldReconnect) {
+                    await delay(3000)
                     connectToWA()
                 }
             } else if(connection === 'open') {
@@ -101,7 +122,7 @@ async function connectToWA() {
                 const msg = m.messages[0]
                 const from = msg.key.remoteJid
                 
-                if (!from) return
+                if (!from || from === 'status@broadcast') return
                 
                 if (msg.key && msg.key.remoteJid === 'status@broadcast') {
                     try {
@@ -276,22 +297,40 @@ function runtime(seconds) {
     return dDisplay + hDisplay + mDisplay + sDisplay
 }
 
+// Express server setup
 app.get('/', (req, res) => {
     res.send('NIRO-MD Server Running! ✅')
 })
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 })
 
-setTimeout(() => {
-    connectToWA()
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Performing graceful shutdown...')
+    server.close(() => {
+        console.log('Server closed')
+        process.exit(0)
+    })
+})
+
+// Initialize bot with delay and error handling
+setTimeout(async () => {
+    try {
+        await connectToWA()
+    } catch (error) {
+        console.error('Failed to initialize bot:', error)
+        process.exit(1)
+    }
 }, 3000)
 
+// Health check interval
 setInterval(() => {
     console.log('Bot is running... ' + new Date().toLocaleString())
 }, 1000 * 60 * 5)
 
+// Error handling
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err)
 })
