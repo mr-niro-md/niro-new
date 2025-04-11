@@ -12,65 +12,43 @@ const fs = require('fs')
 const express = require('express')
 const { File } = require('megajs')
 const config = require('./config')
-const yts = require('yt-search')
-const DY_SCRAP = require('@dark-yasiya/scrap')
-const dy_scrap = new DY_SCRAP()
 const app = express()
 const port = process.env.PORT || 8000
 const prefix = '.'
 
-// Create auth_info_baileys directory if it doesn't exist
-const AUTH_DIR = __dirname + '/auth_info_baileys'
-if (!fs.existsSync(AUTH_DIR)) {
-    fs.mkdirSync(AUTH_DIR, { recursive: true })
-}
+const ownerNumbers = ['94703725271'] // Add your owner numbers here
 
-const ownerNumbers = ['94762296665'] // Add your owner numbers here
-
-// Session handling with better error handling
-async function setupSession() {
-    if (!fs.existsSync(AUTH_DIR + '/creds.json')) {
-        if(!config.SESSION_ID) {
-            console.log('Please add your session to SESSION_ID env !!')
+// Session handling
+if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
+    if(!config.SESSION_ID) {
+        console.log('Please add your session to SESSION_ID env !!')
+        process.exit(1)
+    }
+    
+    const sessdata = config.SESSION_ID.replace("PRABATH-MD~","")
+    const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
+    
+    filer.download((err, data) => {
+        if(err) {
+            console.error("Error downloading session:", err)
             process.exit(1)
         }
         
-        try {
-            const sessdata = config.SESSION_ID.replace("PRABATH-MD~","")
-            const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
-            
-            return new Promise((resolve, reject) => {
-                filer.download((err, data) => {
-                    if(err) {
-                        console.error("Error downloading session:", err)
-                        reject(err)
-                        return
-                    }
-                    
-                    fs.writeFile(AUTH_DIR + '/creds.json', data, (err) => {
-                        if(err) {
-                            console.error("Error saving session:", err)
-                            reject(err)
-                            return
-                        }
-                        console.log("NIRO-MD Session downloaded ✅")
-                        resolve()
-                    })
-                })
-            })
-        } catch (error) {
-            console.error("Error in session setup:", error)
-            throw error
-        }
-    }
+        fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, (err) => {
+            if(err) {
+                console.error("Error saving session:", err)
+                process.exit(1)
+            }
+            console.log("NIRO-MD Session downloaded ✅")
+        })
+    })
 }
 
 async function connectToWA() {
     try {
-        await setupSession()
         console.log('Connecting to WhatsApp...')
         
-        const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
+        const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/')
         const { version } = await fetchLatestBaileysVersion()
 
         const conn = makeWASocket({
@@ -82,16 +60,14 @@ async function connectToWA() {
             connectTimeoutMs: 60_000,
             defaultQueryTimeoutMs: 0,
             keepAliveIntervalMs: 10000,
-            emitOwnEvents: true,
-            retryRequestDelayMs: 2000
+            emitOwnEvents: true
         })
 
         conn.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update
             if(connection === 'close') {
-                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-                if (shouldReconnect) {
-                    await delay(3000)
+                if ((lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+                    await delay(500)
                     connectToWA()
                 }
             } else if(connection === 'open') {
@@ -122,11 +98,11 @@ async function connectToWA() {
                 const msg = m.messages[0]
                 const from = msg.key.remoteJid
                 
-                if (!from || from === 'status@broadcast') return
+                if (!from) return
                 
                 if (msg.key && msg.key.remoteJid === 'status@broadcast') {
                     try {
-                        await conn.readMessages([msg.key])
+                        await conn.readMessages([msg.key]) // Just mark as read
                     } catch (err) {
                         console.error('Error handling status:', err)
                     }
@@ -155,6 +131,7 @@ async function connectToWA() {
                     }
                 }
 
+                // Presence updates
                 try {
                     if (from && from !== 'status@broadcast') {
                         await conn.sendPresenceUpdate('recording', from)
@@ -165,6 +142,7 @@ async function connectToWA() {
                     console.error('Error updating presence:', err)
                 }
 
+                // Message handling
                 const body = msg.message?.conversation || 
                            msg.message?.imageMessage?.caption || 
                            msg.message?.videoMessage?.caption || 
@@ -202,7 +180,7 @@ async function connectToWA() {
                                         title: "NIRO-MD BOT",
                                         body: "WhatsApp Bot",
                                         thumbnailUrl: 'https://i.ibb.co/p6v1dc6w/image-1742790261707.jpg',
-                                        sourceUrl: 'https://wa.me/94762296665',
+                                        sourceUrl: 'https://wa.me/94703725271',
                                         mediaType: 1,
                                         renderLargerThumbnail: true,
                                         showAdAttribution: true
@@ -216,55 +194,9 @@ async function connectToWA() {
                                     key: msg.key
                                 }
                             })
+
                         } catch (err) {
                             console.error('Error in alive command:', err)
-                        }
-                        break
-
-                    case 'song':
-                        try {
-                            if (!body.slice(prefix.length + command.length).trim()) {
-                                await conn.sendMessage(from, { text: '*Please provide a song name!*\nExample: .song tionwayne we won' })
-                                return
-                            }
-                            
-                            const query = body.slice(prefix.length + command.length).trim()
-                            const search = await dy_scrap.ytsearch(query)
-                            const data = search.results[0]
-                            const url = data.url
-
-                            const desc = `*NIRO-MD SONG DOWNLOADER*\n\n╭─❏ TITLE - ${data.title}\n┣❐ ➤ 🎵\n┗⬣ NIRO-MD BOT\n\n© NIRO-MD Developers`
-
-                            await conn.sendMessage(from, {
-                                image: { url: data.thumbnail },
-                                caption: desc
-                            }, { quoted: msg })
-
-                            const audioData = await dy_scrap.ytmp3(url)
-                            const downloadUrl = audioData.result.download.url
-
-                            await conn.sendMessage(from, {
-                                audio: { url: downloadUrl },
-                                mimetype: "audio/mpeg"
-                            }, { quoted: msg })
-
-                            await conn.sendMessage(from, {
-                                document: { url: downloadUrl },
-                                mimetype: "audio/mpeg",
-                                fileName: `${data.title}.mp3`,
-                                caption: "©NIRO-MD Developers"
-                            }, { quoted: msg })
-
-                            await conn.sendMessage(from, {
-                                react: {
-                                    text: "✅",
-                                    key: msg.key
-                                }
-                            })
-
-                        } catch (err) {
-                            console.error('Error in song command:', err)
-                            await conn.sendMessage(from, { text: 'Error downloading song. Please try again.' })
                         }
                         break
                 }
@@ -284,6 +216,7 @@ async function connectToWA() {
     }
 }
 
+// Runtime calculator
 function runtime(seconds) {
     seconds = Number(seconds)
     var d = Math.floor(seconds / (3600 * 24))
@@ -297,40 +230,26 @@ function runtime(seconds) {
     return dDisplay + hDisplay + mDisplay + sDisplay
 }
 
-// Express server setup
+// Express server
 app.get('/', (req, res) => {
     res.send('NIRO-MD Server Running! ✅')
 })
 
-const server = app.listen(port, () => {
+app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 })
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received. Performing graceful shutdown...')
-    server.close(() => {
-        console.log('Server closed')
-        process.exit(0)
-    })
-})
-
-// Initialize bot with delay and error handling
-setTimeout(async () => {
-    try {
-        await connectToWA()
-    } catch (error) {
-        console.error('Failed to initialize bot:', error)
-        process.exit(1)
-    }
+// Connect to WhatsApp with initial delay
+setTimeout(() => {
+    connectToWA()
 }, 3000)
 
-// Health check interval
+// Keep bot online 24/7
 setInterval(() => {
     console.log('Bot is running... ' + new Date().toLocaleString())
 }, 1000 * 60 * 5)
 
-// Error handling
+// Error handlers
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err)
 })
